@@ -14,16 +14,19 @@
 #include <iomanip>
 #include <iostream>
 
+#include <stdarg.h>
+
 #include "tpm2.h"
 
+extern "C" {
 // Todo: refactor out a global sys context.
 TSS2_SYS_CONTEXT *sysContext;
 
 // Todo: still trying to understand tpm2tlci-related libs.
-TSS2_RC PlatformCommand(
-    TSS2_TCTI_CONTEXT *tctiContext,     /* in */
-    char cmd ) { return 0; }
+TSS2_RC PlatformCommand(TSS2_TCTI_CONTEXT *, char) { return 0; }
+int TpmClientPrintf(UINT8, const char *, ...) { return 0; }
 FILE *outFp;
+}
 
 void tpm2_readpcrs(size_t k) {
   TPML_PCR_SELECTION pcrSelection;
