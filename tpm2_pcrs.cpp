@@ -1,6 +1,5 @@
 /*
  * TPM2 Examples
- * Copyright (C) 2006 devnull
  *
  * This is free and unencumbered software released into the public domain.
  *
