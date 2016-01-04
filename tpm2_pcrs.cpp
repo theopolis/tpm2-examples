@@ -13,21 +13,34 @@
 #include <iomanip>
 #include <iostream>
 
-#include <stdarg.h>
-
 #include "tpm2.h"
 
-extern "C" {
-// Todo: refactor out a global sys context.
-TSS2_SYS_CONTEXT *sysContext;
+#define PCR_0 0
+#define PCR_1 1
+#define PCR_2 2
+#define PCR_3 3
+#define PCR_4 4
+#define PCR_5 5
+#define PCR_6 6
+#define PCR_7 7
+#define PCR_8 8
+#define PCR_9 9
+#define PCR_10 10
+#define PCR_11 11
+#define PCR_12 12
+#define PCR_13 13
+#define PCR_14 14
+#define PCR_15 15
+#define PCR_16 16
+#define PCR_17 17
+#define PCR_18 18
 
-// Todo: still trying to understand tpm2tlci-related libs.
-TSS2_RC PlatformCommand(TSS2_TCTI_CONTEXT *, char) { return 0; }
-int TpmClientPrintf(UINT8, const char *, ...) { return 0; }
-FILE *outFp;
-}
+#define PCR_SIZE 20
 
-void tpm2_readpcrs(size_t k) {
+#define SET_PCR_SELECT_BIT(pcrSelection, pcr) \
+  (pcrSelection).pcrSelect[((pcr) / 8)] |= (1 << ((pcr) % 8));
+
+void tpm2_readpcrs(TSS2_SYS_CONTEXT* context, size_t k) {
   TPML_PCR_SELECTION pcrSelection;
 
   pcrSelection.count = 1;
@@ -46,13 +59,13 @@ void tpm2_readpcrs(size_t k) {
   TPML_PCR_SELECTION pcrSelectionOut;
   TPML_DIGEST pcrValues;
 
-  TSS2_RC res = Tss2_Sys_PCR_Read(sysContext,
-                    0,
-                    &pcrSelection,
-                    &pcrUpdateCounterBeforeExtend,
-                    &pcrSelectionOut,
-                    &pcrValues,
-                    0);
+  TSS2_RC res = Tss2_Sys_PCR_Read(context,
+                                  0,
+                                  &pcrSelection,
+                                  &pcrUpdateCounterBeforeExtend,
+                                  &pcrSelectionOut,
+                                  &pcrValues,
+                                  0);
 
   if (res == TSS2_RC_SUCCESS) {
     size_t digest_size = pcrValues.digests[0].t.size;
@@ -65,77 +78,16 @@ void tpm2_readpcrs(size_t k) {
   }
 }
 
-TSS2_TCTI_DRIVER_INFO resMgrInterfaceInfo = {
-    "resMgr", "", InitSocketsTcti, TeardownSocketsTcti};
+int main(int argc, char* argv[]) {
 
-TSS2_RC InitTctiResMgrContext(const char *config,
-                              const char *name,
-                              TSS2_TCTI_CONTEXT **context) {
-  size_t size;
-
-  TSS2_RC result;
-  result = resMgrInterfaceInfo.initialize(NULL, &size, config, 0, 0, name, 0);
-  if (result != TSS2_RC_SUCCESS) {
-    return result;
+  auto mgr = ContextManager::instance();
+  if (!mgr->open("127.0.0.1", DEFAULT_RESMGR_TPM_PORT)) {
+    return 1;
   }
-
-  *context = (TSS2_TCTI_CONTEXT *)malloc(size);
-
-  if (*context != nullptr) {
-    result = resMgrInterfaceInfo.initialize(
-        *context, &size, config, TCTI_MAGIC, TCTI_VERSION, name, 0);
-  } else {
-    result = TSS2_TCTI_RC_BAD_CONTEXT;
-  }
-
-  return result;
-}
-
-TSS2_SYS_CONTEXT *InitSysContext(UINT16 maxCommandSize,
-                                 TSS2_TCTI_CONTEXT *tctiContext,
-                                 TSS2_ABI_VERSION *abiVersion) {
-  UINT32 contextSize;
-  TSS2_RC rval;
-  TSS2_SYS_CONTEXT *sysContext;
-
-  // Get the size needed for system context structure.
-  contextSize = Tss2_Sys_GetContextSize(maxCommandSize);
-
-  // Allocate the space for the system context structure.
-  sysContext = (TSS2_SYS_CONTEXT *)malloc(contextSize);
-
-  if (sysContext != nullptr) {
-    // Initialized the system context structure.
-    rval =
-        Tss2_Sys_Initialize(sysContext, contextSize, tctiContext, abiVersion);
-
-    if (rval == TSS2_RC_SUCCESS) {
-      return sysContext;
-    } else {
-      return nullptr;
-    }
-  }
-
-  return nullptr;
-}
-
-int main(int argc, char *argv[]) {
-  std::string config = "127.0.0.1 " + std::to_string(DEFAULT_RESMGR_TPM_PORT) + " ";
-  std::string interface = "Resource Manager";
-  TSS2_ABI_VERSION abi_version = {
-      TSSWG_INTEROP,
-      TSS_SAPI_FIRST_FAMILY,
-      TSS_SAPI_FIRST_LEVEL,
-      TSS_SAPI_FIRST_VERSION,
-  };
-
-  TSS2_TCTI_CONTEXT *context = nullptr;
-  InitTctiResMgrContext(config.c_str(), interface.c_str(), &context);
-  sysContext = InitSysContext(0, context, &abi_version);
 
   // Read PCRs 0 - 17
   for (size_t k = 0; k < 18; k++) {
-    tpm2_readpcrs(k);
+    tpm2_readpcrs(mgr->getContext(), k);
   }
 
   return 0;

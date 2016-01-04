@@ -1,3 +1,15 @@
+/*
+ * TPM2 Examples
+ *
+ * This is free and unencumbered software released into the public domain.
+ *
+ * Anyone is free to copy, modify, publish, use, compile, sell, or
+ * distribute this software, either in source code form or as a compiled
+ * binary, for any purpose, commercial or non-commercial, and by any
+ * means.
+ */
+
+#include <memory>
 
 #include <stdint.h>
 
@@ -5,33 +17,6 @@
 #define linux
 
 #include <tpm2sapi/tpm20.h>
-
-#define PCR_0 0
-#define PCR_1 1
-#define PCR_2 2
-#define PCR_3 3
-#define PCR_4 4
-#define PCR_5 5
-#define PCR_6 6
-#define PCR_7 7
-#define PCR_8 8
-#define PCR_9 9
-#define PCR_10 10
-#define PCR_11 11
-#define PCR_12 12
-#define PCR_13 13
-#define PCR_14 14
-#define PCR_15 15
-#define PCR_16 16
-#define PCR_17 17
-#define PCR_18 18
-
-#define PCR_SIZE 20
-
-#define SET_PCR_SELECT_BIT(pcrSelection, pcr) \
-  (pcrSelection).pcrSelect[((pcr) / 8)] |= (1 << ((pcr) % 8));
-
-
 #include <tpm2tcti/tpmsockets.h>
 #include <tpm2sapi/tss2_sysapi_util.h>
 
@@ -44,3 +29,30 @@
 
 #define HOSTNAME_LENGTH 200
 #define PORT_LENGTH 4
+
+class ContextManager {
+ public:
+  using SelfRef = std::shared_ptr<ContextManager>;
+
+  /// Singleton accessor.
+  static SelfRef instance() {
+    static SelfRef ref = SelfRef(new ContextManager());
+    return ref;
+  }
+
+  /// Initialize the TCTI and SYS context.
+  bool open(const std::string& host, size_t port);
+
+  /// Accessor for SYS context.
+  TSS2_SYS_CONTEXT* getContext() { return system_context; }
+
+ public:
+  ~ContextManager() {}
+
+ private:
+  ContextManager() {}
+
+ private:
+  TSS2_SYS_CONTEXT* system_context{nullptr};
+  TSS2_TCTI_CONTEXT* context{nullptr};
+};
